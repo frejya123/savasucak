@@ -1,0 +1,38 @@
+model_prefix = "aircraft"
+epochs = 10
+save_model_path = "saved_models"
+for epoch in range(epochs):
+    # train for one epoch, printing every 10 iterations
+    train_one_epoch(m, optimizer, tr_dl, device, epoch, print_freq = 10)
+    # update the learning rate
+    lr_scheduler.step()
+    # evaluate on the test dataset
+    evaluate(m, val_dl, device = device)
+
+os.makedirs(f"{save_model_path}", exist_ok = True)
+torch.save(m, f"{save_model_path}/{model_prefix}_best_model.pt")
+print("Yakalandi")
+ef inference(model, ts_dl, num_ims, rows, threshold = 0.3, cmap = None):
+    
+    assert cmap in ["rgb", "gray"], "Rasmni oq-qora yoki rangli ekanini aniqlashtirib bering!"
+    if cmap == "rgb": cmap = "viridis"
+    
+    plt.figure(figsize = (20, 10))
+    indekslar = [random.randint(0, len(ts_dl) - 1) for _ in range(num_ims)]
+    
+    for idx, indeks in enumerate(indekslar):
+        im, _ = ts_dl.dataset[indeks]
+        with torch.no_grad(): predictions = m(im.unsqueeze(0).to(device))
+        img = tensor_2_im(im, inv_trans = True)
+        bbox_class_names = []
+        for i, (boxes, scores, labels) in enumerate(zip(predictions[0]["boxes"], predictions[0]["scores"], predictions[0]["labels"])):
+            if scores > threshold:
+                bbox_class_names.append(list(class_names.keys())[labels.item()])
+                r, g, b = [random.randint(0, 255) for _ in range(3)]
+                x, y, w, h = [round(b.item()) for b in boxes]
+                cv2.rectangle(img = img, pt1 = (x, y), pt2 = (w, h), color = (r, g, b), thickness = 2)
+        plt.subplot(rows, num_ims // rows, idx + 1)
+        plt.imshow(img); plt.title(f"{bbox_class_names}")
+        plt.axis("off")
+        
+inference(model = m, ts_dl = ts_dl, num_ims = 12, rows = 3, cmap = "rgb")
